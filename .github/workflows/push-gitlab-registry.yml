@@ -35,12 +35,12 @@ jobs:
       - name: Log in to NRP GitLab Container Registry
         run: echo "${{ secrets.NRP_GITLAB_PAT }}" | docker login ${{ secrets.NRP_GITLAB_REGISTRY_URL }} -u ${{ secrets.NRP_GITLAB_USERNAME }} --password-stdin
 
-      - name: Build Docker Image
+      - name: Build Docker Image for MNIST PyTorch
         run: |
           docker build -t ${{ secrets.NRP_GITLAB_REGISTRY_URL }}/ndp/schmidt-ai/mnist-pytorch:${{ env.IMAGE_TAG }} mnist-pytorch
           docker tag ${{ secrets.NRP_GITLAB_REGISTRY_URL }}/ndp/schmidt-ai/mnist-pytorch:${{ env.IMAGE_TAG }} ${{ secrets.NRP_GITLAB_REGISTRY_URL }}/ndp/schmidt-ai/mnist-pytorch:latest
 
-      - name: Push Docker Image to GitLab Registry
+      - name: Push Docker Image to GitLab Registry for MNIST PyTorch
         run: |
           docker push ${{ secrets.NRP_GITLAB_REGISTRY_URL }}/ndp/schmidt-ai/mnist-pytorch:${{ env.IMAGE_TAG }}
           docker push ${{ secrets.NRP_GITLAB_REGISTRY_URL }}/ndp/schmidt-ai/mnist-pytorch:latest
