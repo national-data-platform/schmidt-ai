@@ -9,6 +9,17 @@ These examples are designed to guide you through the setup, execution, and custo
 
 Below are the steps to run minist-pytorch using different environments. [main.py](/mnist-pytorch/main.py) was taken from the [official pytorch examples](https://github.com/pytorch/examples/blob/main/mnist/main.py) and adapted for this tutorial.
 
+Note you will have to `cd` into [mnist-pytorch](/mnist-pytorch/) for the rest of the README.
+```
+cd mnist-pytorch
+```
+
+To further modify the environment (if needed), create .env with the following contents:
+```
+S3_ENDPOINT=https://s3-west.nrp-nautilus.io
+
+```
+
 ## Using Pip Environment
 
 1. **Set Up a Virtual Environment:**
@@ -55,6 +66,11 @@ Below are the steps to run minist-pytorch using different environments. [main.py
 2. **Run the Docker Container:**
     ```
     docker run -it --rm minist-pytorch
+    ```
+3. **Run the Docker Container with the .env File:**
+  - Use the `--env-file` option to load the environment variables from the `.env` file when running the container:
+    ```
+    docker run -it --rm --env-file .env minist-pytorch
     ```
 
 Follow these instructions to run minist-pytorch in your desired environment.

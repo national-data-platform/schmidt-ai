@@ -4,7 +4,7 @@ from io import BytesIO
 import gzip
 import numpy as np
 from PIL import Image
-
+import os
 
 import torch
 import torch.nn as nn
@@ -15,6 +15,9 @@ from torch.optim.lr_scheduler import StepLR
 
 import fsspec
 import time
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class Net(nn.Module):
     def __init__(self):
@@ -78,7 +81,7 @@ def test(model, device, test_loader):
         100. * correct / len(test_loader.dataset)))
 
 
-def load_mnist_data_from_s3(bucket, train=True, endpoint_url='https://s3-west.nrp-nautilus.io'):
+def load_mnist_data_from_s3(bucket, s3_endpoint, train=True):
     if train:
         images_url = f's3://{bucket}/mnist/train-images-idx3-ubyte.gz'
         labels_url = f's3://{bucket}/mnist/train-labels-idx1-ubyte.gz'
@@ -87,8 +90,8 @@ def load_mnist_data_from_s3(bucket, train=True, endpoint_url='https://s3-west.nr
         labels_url = f's3://{bucket}/mnist/t10k-labels-idx1-ubyte.gz'
 
     s3_options = {'anon': True}
-    if endpoint_url:
-        s3_options['client_kwargs'] = {'endpoint_url': endpoint_url}
+    if s3_endpoint:
+        s3_options['client_kwargs'] = {'endpoint_url': s3_endpoint}
 
     with fsspec.open(images_url, 'rb', **s3_options) as img_f, fsspec.open(labels_url, "rb", **s3_options) as lbl_f:
         with gzip.open(img_f, 'rb') as img_gz, gzip.open(lbl_f, 'rb') as lbl_gz:
@@ -101,8 +104,8 @@ def load_mnist_data_from_s3(bucket, train=True, endpoint_url='https://s3-west.nr
 
 
 class S3MNIST(torch.utils.data.Dataset):
-    def __init__(self, s3_bucket, train=True, transform=None):
-        self.data, self.targets = load_mnist_data_from_s3(s3_bucket, train=train)
+    def __init__(self, s3_bucket, s3_endpoint, train=True, transform=None):
+        self.data, self.targets = load_mnist_data_from_s3(s3_bucket, s3_endpoint=s3_endpoint, train=train)
         self.transform = transform
 
     def __getitem__(self, index):
@@ -124,7 +127,7 @@ def main():
     parser.add_argument('--test-batch-size', type=int, default=1000, metavar='N',
                         help='input batch size for testing (default: 1000)')
     parser.add_argument('--epochs', type=int, default=10, metavar='N',
-                        help='number of epochs to train (default: 14)')
+                        help='number of epochs to train (default: 10)')
     parser.add_argument('--lr', type=float, default=1.0, metavar='LR',
                         help='learning rate (default: 1.0)')
     parser.add_argument('--gamma', type=float, default=0.7, metavar='M',
@@ -173,8 +176,10 @@ def main():
     ])
 
     if args.s3_path:
-        dataset1 = S3MNIST(s3_bucket=args.s3_path, train=True, transform=transform)
-        dataset2 = S3MNIST(s3_bucket=args.s3_path, train=False, transform=transform)
+        s3_endpoint = os.environ.get('S3_ENDPOINT','https://s3-west.nrp-nautilus.io')
+        print(f"Using S3 endpoint: {s3_endpoint}")
+        dataset1 = S3MNIST(s3_bucket=args.s3_path, train=True, transform=transform, s3_endpoint=s3_endpoint)
+        dataset2 = S3MNIST(s3_bucket=args.s3_path, train=False, transform=transform, s3_endpoint=s3_endpoint)
     else:
         dataset1 = datasets.MNIST('../data', train=True, download=True,
                                   transform=transform)
