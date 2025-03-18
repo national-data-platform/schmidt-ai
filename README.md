@@ -86,7 +86,7 @@ aws s3 cp ./data/MNIST/raw s3://schmidt-ai/mnist/ --recursive --profile nrp --en
     ```
 
 ## Using Kubernetes ([NRP](https://nrp.ai/documentation/))
-For using Kubernetes, there are already images built to use the [job manifest](/kubernetes/mnist-pytorch/job.yaml) in [NRPs gitlab registry](https://gitlab.nrp-nautilus.io/ndp/schmidt-ai/container_registry/5024).
+For using Kubernetes, there are already images built to use the [job manifest](/kubernetes/mnist-pytorch/job-s3.yaml) in [NRPs gitlab registry](https://gitlab.nrp-nautilus.io/ndp/schmidt-ai/container_registry/5024).
 
 Why Use Kubernetes for ML Training Jobs on NRP:
 - **Scalability:**  
