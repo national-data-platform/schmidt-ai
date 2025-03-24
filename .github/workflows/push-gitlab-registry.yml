@@ -9,6 +9,12 @@ on:
     paths-ignore:
       - 'kubernetes/**'
       - 'README.md'
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - 'kubernetes/**'
+      - 'README.md'
 
 jobs:
   push-to-gitlab:
