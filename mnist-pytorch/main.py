@@ -13,9 +13,14 @@ import torch.optim as optim
 from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
+import mlflow
+
 import fsspec
 import time
 from dotenv import load_dotenv
+from datetime import datetime
+import socket
+
 
 load_dotenv()
 
@@ -54,15 +59,20 @@ def train(args, model, device, train_loader, optimizer, epoch):
         loss = F.nll_loss(output, target)
         loss.backward()
         optimizer.step()
+        pred = output.argmax(dim=1, keepdim=True)
+        correct = pred.eq(target.view_as(pred)).sum().item()
+        accuracy = correct / len(data)
         if batch_idx % args.log_interval == 0:
             print('Train Epoch: {} [{}/{} ({:.0f}%)]\tLoss: {:.6f}'.format(
                 epoch, batch_idx * len(data), len(train_loader.dataset),
                 100. * batch_idx / len(train_loader), loss.item()))
             if args.dry_run:
                 break
+    mlflow.log_metric("train_loss", f"{loss.item():3f}", step=epoch)
+    mlflow.log_metric("train_accuracy", f"{accuracy:3f}", step=epoch)
 
 
-def test(model, device, test_loader):
+def test(model, device, test_loader, epoch):
     model.eval()
     test_loss = 0
     correct = 0
@@ -75,10 +85,12 @@ def test(model, device, test_loader):
             correct += pred.eq(target.view_as(pred)).sum().item()
 
     test_loss /= len(test_loader.dataset)
-
+    accuracy = correct / len(test_loader.dataset)
+    mlflow.log_metric("test_loss", f"{test_loss:3f}", step=epoch)
+    mlflow.log_metric("test_accuracy", f"{accuracy:3f}", step=epoch)
     print('\nTest set: Average loss: {:.4f}, Accuracy: {}/{} ({:.0f}%)\n'.format(
         test_loss, correct, len(test_loader.dataset),
-        100. * correct / len(test_loader.dataset)))
+        100. * accuracy))
 
 
 def load_mnist_data_from_s3(bucket, s3_endpoint, train=True):
@@ -146,9 +158,21 @@ def main():
                         help='For Saving the current Model')
     parser.add_argument('--s3-path', type=str, default=None,
                         help='S3 bucket name to stream MNIST data from')
+    parser.add_argument('--mlflow-experiment-name', type=str, default='mnist-pytorch',
+                        help='Mlflow experiment name')
+    parser.add_argument('--mlflow-run-name-prefix', type=str, default='cnn',
+                        help='Mlflow run name prefix, run name is prefix + timestamp')
     args = parser.parse_args()
+    args_dict = vars(args)
+    
     use_cuda = not args.no_cuda and torch.cuda.is_available()
     use_mps = not args.no_mps and torch.backends.mps.is_available()
+    
+    args_dict['use_cuda'] = use_cuda
+    args_dict['use_mps'] = use_mps
+
+    hostname = socket.gethostname()
+    args_dict['hostname'] = hostname
 
     torch.manual_seed(args.seed)
 
@@ -165,6 +189,12 @@ def main():
         cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
                        'shuffle': True}
+        try:
+            gpu_name = torch.cuda.get_device_name(0)
+        except Exception:
+            gpu_name = "Unknown GPU"
+        args_dict['gpu_type'] = gpu_name
+        args_dict['cuda_kwargs'] = cuda_kwargs
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
 
@@ -177,6 +207,7 @@ def main():
 
     if args.s3_path:
         s3_endpoint = os.environ.get('S3_ENDPOINT','https://s3-west.nrp-nautilus.io')
+        args_dict['s3_endpoint'] = s3_endpoint
         print(f"Using S3 endpoint: {s3_endpoint}")
         dataset1 = S3MNIST(s3_bucket=args.s3_path, train=True, transform=transform, s3_endpoint=s3_endpoint)
         dataset2 = S3MNIST(s3_bucket=args.s3_path, train=False, transform=transform, s3_endpoint=s3_endpoint)
@@ -193,9 +224,23 @@ def main():
     optimizer = optim.Adadelta(model.parameters(), lr=args.lr)
 
     scheduler = StepLR(optimizer, step_size=1, gamma=args.gamma)
+    args_dict['optimizer'] = 'Adadelta'
+
+    experiment_name = args.mlflow_experiment_name
+    try:
+        mlflow.create_experiment(experiment_name)
+    except:
+        pass
+    now = datetime.now().strftime("%Y%m%d_%I%M%S%p")
+    run_name_prefix = args.mlflow_run_name_prefix
+    run_name = run_name_prefix + '_' + now
+    mlflow.set_experiment(experiment_name)
+    mlflow.start_run(run_name=run_name)
+    mlflow.log_params(args_dict)
+
     for epoch in range(1, args.epochs + 1):
         train(args, model, device, train_loader, optimizer, epoch)
-        test(model, device, test_loader)
+        test(model, device, test_loader, epoch)
         scheduler.step()
 
     if args.save_model:
