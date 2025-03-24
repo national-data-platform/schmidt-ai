@@ -178,10 +178,18 @@ def main():
 
     if use_cuda:
         device = torch.device("cuda")
+        try:
+            gpu_name = torch.cuda.get_device_name(0)
+        except Exception:
+            gpu_name = "NaN"
     elif use_mps:
         device = torch.device("mps")
+        gpu_name = 'NaN'
     else:
         device = torch.device("cpu")
+        gpu_name = 'NaN'
+
+    args_dict['gpu_type'] = gpu_name
 
     train_kwargs = {'batch_size': args.batch_size}
     test_kwargs = {'batch_size': args.test_batch_size}
@@ -189,11 +197,6 @@ def main():
         cuda_kwargs = {'num_workers': 1,
                        'pin_memory': True,
                        'shuffle': True}
-        try:
-            gpu_name = torch.cuda.get_device_name(0)
-        except Exception:
-            gpu_name = "Unknown GPU"
-        args_dict['gpu_type'] = gpu_name
         args_dict['cuda_kwargs'] = cuda_kwargs
         train_kwargs.update(cuda_kwargs)
         test_kwargs.update(cuda_kwargs)
