@@ -32,6 +32,33 @@ Upload dataset to schmidt-ai bucket and make it public:
 aws s3 cp ./data/MNIST/raw s3://schmidt-ai/mnist/ --recursive --profile nrp --endpoint-url https://s3-west.nrp-nautilus.io --acl public-read
 ```
 
+## MlFlow
+
+This section explains how to use MLFlow for experiment tracking hosted on NDP. Before running MLFlow, ensure you have set the required environment variables. Without these, MLFlow won't track experiments, but the training sessions will still run successfully.
+
+### Setting Up Environment Variables
+
+To enable MLFlow tracking on NDP, export the following variables:
+
+```
+MLFLOW_TRACKING_URI=https://nationaldataplatform.org/mlflow
+MLFLOW_TRACKING_USERNAME=
+MLFLOW_TRACKING_PASSWORD=
+```
+
+Alternatively, add these lines to your `.env` file.
+
+### Running MLFlow
+
+With the environment variables set, run your training script as usual. MLFlow will log parameters and metrics to the configured MLFlow tracking server.
+
+### Verifying Your Setup
+
+After running your script, verify the experiment and run details by visiting the MLFlow UI at [MLFlow UI](https://nationaldataplatform.org/mlflow).
+
+If these variables are missing or misconfigured, MLFlow tracking will not be activated.
+
+
 ## Using Pip Environment
 
 1. **Set Up a Virtual Environment:**
@@ -110,7 +137,13 @@ This command packages your environment variables into a secret named `mnist-pyto
 Note that if you are using the s3 bucket for the mnist dataset, the s3 endpoint must be changed to the inside endpoint:
 ```
 S3_ENDPOINT=http://rook-ceph-rgw-nautiluss3.rook
+```
 
+For MlFlow tracking append the following .env variables to the .env:
+```
+MLFLOW_TRACKING_URI=https://nationaldataplatform.org/mlflow
+MLFLOW_TRACKING_USERNAME=
+MLFLOW_TRACKING_PASSWORD=
 ```
 
 Create a job using data that is stored in a s3 bucket:
