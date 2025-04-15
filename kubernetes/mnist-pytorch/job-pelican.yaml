@@ -1,9 +1,9 @@
 apiVersion: batch/v1
 kind: Job
 metadata:
-  name: mnist-pytorch-s3-job
+  name: mnist-pytorch-pelican-job
   labels:
-    app: mnist-pytorch-s3-job
+    app: mnist-pytorch-pelican-job
 spec:
   completions: 3
   parallelism: 3
@@ -13,7 +13,7 @@ spec:
   template:
     metadata:
       labels:
-        app: mnist-pytorch-s3-job
+        app: mnist-pytorch-pelican-job
     spec:
       containers:
       - name: mnist-pytorch
