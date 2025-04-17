@@ -20,9 +20,9 @@ spec:
         image: gitlab-registry.nrp-nautilus.io/ndp/schmidt-ai/mnist-pytorch:latest
         command: ["bash", "-c", "\
           params=( \
-            \"--lr 0.01 --gamma 0.7 --batch-size 64\" \
-            \"--lr 0.001 --gamma 0.7 --batch-size 128\" \
-            \"--lr 0.0001 --gamma 0.7 --batch-size 256\" ); \
+            \"--lr 0.01 --gamma 0.7 --batch-size 64 --data-protocol local\" \
+            \"--lr 0.001 --gamma 0.7 --batch-size 128 --data-protocol local\" \
+            \"--lr 0.0001 --gamma 0.7 --batch-size 256 --data-protocol local\" ); \
           idx=$JOB_COMPLETION_INDEX; \
           echo \"Running experiment: ${params[$idx]}\"; \
           python main.py ${params[$idx]}"]

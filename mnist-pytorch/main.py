@@ -93,19 +93,26 @@ def test(model, device, test_loader, epoch):
         100. * accuracy))
 
 
-def load_mnist_data_from_s3(bucket, s3_endpoint, train=True):
+def load_mnist_data(bucket, data_protocol, s3_endpoint, train=True):
+    if data_protocol == 's3':
+        files_prefix = f's3://{bucket}'
+        options = {'anon': True}
+        if s3_endpoint:
+            options['client_kwargs'] = {'endpoint_url': s3_endpoint}
+        fs = fsspec.filesystem('s3', **options)
+    elif data_protocol == 'pelican':
+        options = {}
+        files_prefix = f'/ndp/burnpro3d'
+        fs = fsspec.filesystem('osdf')
+
     if train:
-        images_url = f's3://{bucket}/mnist/train-images-idx3-ubyte.gz'
-        labels_url = f's3://{bucket}/mnist/train-labels-idx1-ubyte.gz'
+        images_url = f'{files_prefix}/mnist/train-images-idx3-ubyte.gz'
+        labels_url = f'{files_prefix}/mnist/train-labels-idx1-ubyte.gz'
     else:
-        images_url = f's3://{bucket}/mnist/t10k-images-idx3-ubyte.gz'
-        labels_url = f's3://{bucket}/mnist/t10k-labels-idx1-ubyte.gz'
+        images_url = f'{files_prefix}/mnist/t10k-images-idx3-ubyte.gz'
+        labels_url = f'{files_prefix}/mnist/t10k-labels-idx1-ubyte.gz'
 
-    s3_options = {'anon': True}
-    if s3_endpoint:
-        s3_options['client_kwargs'] = {'endpoint_url': s3_endpoint}
-
-    with fsspec.open(images_url, 'rb', **s3_options) as img_f, fsspec.open(labels_url, "rb", **s3_options) as lbl_f:
+    with fs.open(images_url, 'rb', **options) as img_f, fs.open(labels_url, "rb", **options) as lbl_f:
         with gzip.open(img_f, 'rb') as img_gz, gzip.open(lbl_f, 'rb') as lbl_gz:
             img_data = img_gz.read()
             lbl_data = lbl_gz.read()
@@ -115,9 +122,9 @@ def load_mnist_data_from_s3(bucket, s3_endpoint, train=True):
     return images, labels
 
 
-class S3MNIST(torch.utils.data.Dataset):
-    def __init__(self, s3_bucket, s3_endpoint, train=True, transform=None):
-        self.data, self.targets = load_mnist_data_from_s3(s3_bucket, s3_endpoint=s3_endpoint, train=train)
+class MNIST(torch.utils.data.Dataset):
+    def __init__(self, s3_bucket, data_protocol, s3_endpoint, train=True, transform=None):
+        self.data, self.targets = load_mnist_data(s3_bucket, data_protocol, s3_endpoint=s3_endpoint, train=train)
         self.transform = transform
 
     def __getitem__(self, index):
@@ -158,6 +165,8 @@ def main():
                         help='For Saving the current Model')
     parser.add_argument('--s3-path', type=str, default=None,
                         help='S3 bucket name to stream MNIST data from')
+    parser.add_argument('--data-protocol', type=str, default=None,
+                        help='Data Protocol to download data, s3 or pelican')
     parser.add_argument('--mlflow-experiment-name', type=str, default='mnist-pytorch',
                         help='Mlflow experiment name')
     parser.add_argument('--mlflow-run-name-prefix', type=str, default='cnn',
@@ -208,13 +217,17 @@ def main():
         transforms.Normalize((mean,), (std,))
     ])
 
-    if args.s3_path:
+    if args.data_protocol == 's3':
         s3_endpoint = os.environ.get('S3_ENDPOINT','https://s3-west.nrp-nautilus.io')
         args_dict['s3_endpoint'] = s3_endpoint
         print(f"Using S3 endpoint: {s3_endpoint}")
-        dataset1 = S3MNIST(s3_bucket=args.s3_path, train=True, transform=transform, s3_endpoint=s3_endpoint)
-        dataset2 = S3MNIST(s3_bucket=args.s3_path, train=False, transform=transform, s3_endpoint=s3_endpoint)
-    else:
+        dataset1 = MNIST(s3_bucket=args.s3_path, data_protocol=args.data_protocol, train=True, transform=transform, s3_endpoint=s3_endpoint)
+        dataset2 = MNIST(s3_bucket=args.s3_path, data_protocol=args.data_protocol, train=False, transform=transform, s3_endpoint=s3_endpoint)
+    elif args.data_protocol == 'pelican':
+        s3_endpoint = None
+        dataset1 = MNIST(s3_bucket=args.s3_path, data_protocol=args.data_protocol, train=True, transform=transform, s3_endpoint=s3_endpoint)
+        dataset2 = MNIST(s3_bucket=args.s3_path, data_protocol=args.data_protocol, train=False, transform=transform, s3_endpoint=s3_endpoint)
+    elif args.data_protocol == 'local':
         dataset1 = datasets.MNIST('../data', train=True, download=True,
                                   transform=transform)
         dataset2 = datasets.MNIST('../data', train=False, download=True,
