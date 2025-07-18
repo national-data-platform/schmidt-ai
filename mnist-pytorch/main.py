@@ -14,6 +14,7 @@ from torchvision import datasets, transforms
 from torch.optim.lr_scheduler import StepLR
 
 import mlflow
+from mlflow.exceptions import MlflowException
 
 import fsspec
 import time
@@ -163,9 +164,10 @@ def main():
                         help='how many batches to wait before logging training status')
     parser.add_argument('--save-model', action='store_true', default=False,
                         help='For Saving the current Model')
-    parser.add_argument('--s3-path', type=str, default=None,
+    parser.add_argument('--s3-path', type=str, default='schmidt-ai',
                         help='S3 bucket name to stream MNIST data from')
-    parser.add_argument('--data-protocol', type=str, default=None,
+    parser.add_argument('--data-protocol', type=str, default='local', 
+                        choices=['s3', 'pelican', 'local'],
                         help='Data Protocol to download data, s3 or pelican')
     parser.add_argument('--mlflow-experiment-name', type=str, default='mnist-pytorch',
                         help='Mlflow experiment name')
@@ -245,8 +247,11 @@ def main():
     experiment_name = args.mlflow_experiment_name
     try:
         mlflow.create_experiment(experiment_name)
-    except:
-        pass
+    except MlflowException as e:
+        if "already exists" in str(e):
+            pass  # OK, experiment exists
+        else:
+            raise  # Unexpected error, re-raise it
     now = datetime.now().strftime("%Y%m%d_%I%M%S%p")
     run_name_prefix = args.mlflow_run_name_prefix
     run_name = run_name_prefix + '_' + now
